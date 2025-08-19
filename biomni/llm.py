@@ -109,7 +109,7 @@ def get_llm(
             max_tokens=8192,
             stop_sequences=stop_sequences,
             base_url=os.environ.get("BASE_ENDPOINT"),
-            api_key = os.environ.get("ANTHROPIC_KONGAPINYU_APIKEY=")
+            api_key = os.environ.get("ANTHROPIC_KONGAPINYU_APIKEY")
         )
 
     elif source == "Gemini":
