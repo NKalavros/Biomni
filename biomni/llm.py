@@ -13,7 +13,7 @@ def get_llm(
     temperature: float = 0.7,
     stop_sequences: list[str] | None = None,
     source: SourceType | None = None,
-    base_url: str | None = None,
+    base_url: 'custommodelfakeurl',
     api_key: str = "EMPTY",
 ) -> BaseChatModel:
     """
@@ -175,24 +175,77 @@ def get_llm(
         )
 
     elif source == "Custom":
-        try:
-            from langchain_openai import ChatOpenAI
-        except ImportError:
-            raise ImportError(  # noqa: B904
-                "langchain-openai package is required for custom models. Install with: pip install langchain-openai"
-            )
-        # Custom LLM serving such as SGLang. Must expose an openai compatible API.
-        assert base_url is not None, "base_url must be provided for customly served LLMs"
-        llm = ChatOpenAI(
-            model=model,
-            temperature=temperature,
-            max_tokens=8192,
-            stop_sequences=stop_sequences,
-            base_url=base_url,
-            api_key=api_key,
-        )
-        return llm
-
+        from langchain.llms.base import LLM
+        from typing import Optional, List, Any
+        import requests
+        import os
+        
+        class CustomClaudeLLM(LLM):
+            model_route: str = "sonnet-4/v1.0.0"
+            temperature: float = 0.7
+            max_tokens: int = 8192
+            
+            @property
+            def _llm_type(self) -> str:
+                return "custom_claude"
+            
+            def _call(
+                self,
+                prompt: str,
+                stop: Optional[List[str]] = None,
+                run_manager: Optional[Any] = None,
+                **kwargs: Any,
+            ) -> str:
+                base_endpoint = os.environ.get("BASE_ENDPOINT")
+                api_key = os.environ.get("ANTHROPIC_KONGAPINYU_APIKEY")
+                
+                endpoint = f"{base_endpoint}/{self.model_route}"
+                
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": api_key
+                }
+                
+                payload = {
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    "max_tokens": self.max_tokens,
+                    "temperature": self.temperature,
+                    "top_p": 0.9,
+                    "anthropic_version": "bedrock-2023-05-31"
+                }
+                
+                if stop:
+                    payload["stop_sequences"] = stop
+                    
+                try:
+                    response = requests.post(
+                        endpoint,
+                        headers=headers,
+                        json=payload,
+                        timeout=60
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if "content" in result and len(result["content"]) > 0:
+                            for item in result["content"]:
+                                if item["type"] == "text":
+                                    return item["text"]
+                        return "No text content found"
+                    else:
+                        raise Exception(f"API Error: {response.status_code}")
+                        
+                except Exception as e:
+                    raise Exception(f"Request failed: {str(e)}")
+        
+        # Usage
+        llm = CustomClaudeLLM(model_route="sonnet-4/v1.0.0")
+        return(llm)
     else:
         raise ValueError(
             f"Invalid source: {source}. Valid options are 'OpenAI', 'AzureOpenAI', 'Anthropic', 'Gemini', 'Groq', 'Bedrock', or 'Ollama'"
