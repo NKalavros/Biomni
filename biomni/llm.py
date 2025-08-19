@@ -9,7 +9,7 @@ ALLOWED_SOURCES: set[str] = set(SourceType.__args__)
 
 
 def get_llm(
-    model: str = "claude-3-5-sonnet-20241022",
+    model: str = "claude-4-sonnet-2025",
     temperature: float = 0.7,
     stop_sequences: list[str] | None = None,
     source: SourceType | None = None,
@@ -104,10 +104,12 @@ def get_llm(
                 "langchain-anthropic package is required for Anthropic models. Install with: pip install langchain-anthropic"
             )
         return ChatAnthropic(
-            model=model,
+            model='sonnet-4/v1.0.0',
             temperature=temperature,
             max_tokens=8192,
             stop_sequences=stop_sequences,
+            base_url=os.environ.get("BASE_ENDPOINT"),
+            api_key = os.environ.get("ANTHROPIC_KONGAPINYU_APIKEY=")
         )
 
     elif source == "Gemini":
